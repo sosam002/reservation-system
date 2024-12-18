@@ -1,16 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/> 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reservation System</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
-        h1 {
+        h1, h2 {
             text-align: center;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .controls label {
+            margin-right: 10px;
+        }
+        .controls select {
+            font-size: 16px;
+            padding: 5px;
         }
         .slot {
             border: 1px solid #ddd;
@@ -32,6 +44,7 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin-left: 5px;
         }
         .btn.reserve {
             background-color: #4CAF50;
@@ -41,74 +54,101 @@
             background-color: #f44336;
             color: white;
         }
+        #slots {
+            max-width: 600px;
+            margin: 0 auto;
+        }
     </style>
 </head>
 <body>
     <h1>Reservation System</h1>
+    <h2>Select a Date and Time Slot</h2>
+    <div class="controls">
+        <label for="dateSelect">Date:</label>
+        <select id="dateSelect"></select>
+    </div>
     <div id="slots"></div>
 
     <script>
-        // -------------------------------
-        // 여기서 수정해야 할 부분들
-        // -------------------------------
-        // 본인 GitHub 계정명
+        // ------------------------------------------
+        // 수정 필요 부분
+        // 본인 GitHub 계정명, Private Repo 이름, Token 설정
+        // ------------------------------------------
         const REPO_OWNER = 'sosam002'; 
-        // Private Repository 이름
-        const REPO_NAME = 'reservation-info'; 
-        // 업데이트할 브랜치 이름 (일반적으로 main)
+        const REPO_NAME = 'reservation_info'; 
         const BRANCH_NAME = 'main'; 
-        // 위에서 생성한 Personal Access Token
-        const ACCESS_TOKEN = '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';
+        const ACCESS_TOKEN = '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'; 
+        
+        // 날짜 리스트: 원하는 날짜를 여기서 편집
+        const dates = [
+            '2024-12-20',
+            '2024-12-21',
+            '2024-12-22'
+        ];
+
+        const startHour = 8;
+        const endHour = 20;
 
         // GitHub API 기본 URL
         const GITHUB_API_URL = 'https://api.github.com';
 
-        // 예약 시간 범위 설정
-        const startHour = 9;
-        const endHour = 22;
+        // 날짜별 슬롯 데이터 저장 구조: { 'YYYY-MM-DD': [ {time, status, user, password}, ... ], ... }
+        let reservations = {};
 
-        // 시간 슬롯 생성
-        const slots = [];
-        for (let hour = startHour; hour < endHour; hour++) {
-            slots.push({
-                time: `${hour}:00 - ${hour + 1}:00`,
-                status: 'Available',
-                user: null,
-                password: null,
-            });
-        }
+        // 초기화: 각 날짜마다 슬롯 생성
+        dates.forEach(date => {
+            const daySlots = [];
+            for (let hour = startHour; hour < endHour; hour++) {
+                daySlots.push({
+                    time: `${hour}:00 - ${hour + 1}:00`,
+                    status: 'Available',
+                    user: null,
+                    password: null
+                });
+            }
+            reservations[date] = daySlots;
+        });
 
-        // 현재 예약 상황을 메모리로 관리
-        const reservations = {};
+        // 날짜 셀렉트 박스
+        const dateSelect = document.getElementById('dateSelect');
+        dates.forEach(dateStr => {
+            const option = document.createElement('option');
+            option.value = dateStr;
+            option.textContent = dateStr;
+            dateSelect.appendChild(option);
+        });
 
         const slotsDiv = document.getElementById('slots');
 
-        const renderSlots = () => {
+        const renderSlots = (date) => {
+            const slots = reservations[date];
             slotsDiv.innerHTML = '';
             slots.forEach((slot, index) => {
                 const slotDiv = document.createElement('div');
                 slotDiv.className = `slot ${slot.status.toLowerCase()}`;
+                let buttonsHTML = '';
+                if (slot.status === 'Available') {
+                    buttonsHTML = `<button class="btn reserve" onclick="reserveSlot('${date}', ${index})">Reserve</button>`;
+                } else {
+                    // Occupied 상태일 경우 예약한 동호수 표시
+                    buttonsHTML = `<span>${slot.user}</span><button class="btn cancel" onclick="cancelSlot('${date}', ${index})">Cancel</button>`;
+                }
+
                 slotDiv.innerHTML = `
                     <span>${slot.time} - ${slot.status}</span>
-                    <div>
-                        ${slot.status === 'Available' 
-                            ? `<button class="btn reserve" onclick="reserveSlot(${index})">Reserve</button>` 
-                            : `<span>${slot.user}</span>
-                               <button class="btn cancel" onclick="cancelSlot(${index})">Cancel</button>`}
-                    </div>
+                    <div>${buttonsHTML}</div>
                 `;
                 slotsDiv.appendChild(slotDiv);
             });
         };
 
-        // GitHub API로 CSV 파일 업로드
+        // CSV 업로드 함수
         const uploadToGitHub = async (content) => {
             const filePath = 'reservations.csv';
             const getFileUrl = `${GITHUB_API_URL}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`;
             let sha = null;
 
             try {
-                // 기존 파일 SHA 조회
                 const getFileResponse = await fetch(getFileUrl, {
                     headers: { Authorization: `token ${ACCESS_TOKEN}` },
                 });
@@ -120,7 +160,6 @@
                 console.error('Error fetching file SHA:', error);
             }
 
-            // 파일 업로드/업데이트
             const uploadResponse = await fetch(getFileUrl, {
                 method: 'PUT',
                 headers: {
@@ -129,7 +168,7 @@
                 },
                 body: JSON.stringify({
                     message: 'Update reservations',
-                    content: btoa(content), // Base64 인코딩
+                    content: btoa(content),
                     branch: BRANCH_NAME,
                     sha,
                 }),
@@ -142,8 +181,24 @@
             }
         };
 
-        const reserveSlot = (index) => {
-            const user = prompt('Enter your apartment number (동-호, 예: 101-202):');
+        // CSV 생성
+        const saveToCSV = () => {
+            // CSV: Date,Time,Apartment
+            let csvContent = 'Date,Time,Apartment\n';
+            for (const date in reservations) {
+                reservations[date].forEach(slot => {
+                    if (slot.status === 'Occupied') {
+                        csvContent += `${date},${slot.time},${slot.user}\n`;
+                    }
+                });
+            }
+            uploadToGitHub(csvContent);
+        };
+
+        // 예약 처리
+        window.reserveSlot = (date, index) => {
+            const slots = reservations[date];
+            const user = prompt('Enter your apartment number (동-호, e.g. 101-202):');
             if (!/^\d{3}-\d{4}$/.test(user)) {
                 alert('Invalid apartment number format! Please use 000-0000 format.');
                 return;
@@ -155,47 +210,40 @@
                 return;
             }
 
-            const slot = slots[index];
-            if (slot.status === 'Available') {
-                slot.status = 'Occupied';
-                slot.user = user;
-                slot.password = password;
-                reservations[slot.time] = user;
-                renderSlots();
+            if (slots[index].status === 'Available') {
+                slots[index].status = 'Occupied';
+                slots[index].user = user;
+                slots[index].password = password;
                 saveToCSV();
+                renderSlots(date);
                 alert('Reservation successful!');
             } else {
                 alert('This slot is already occupied.');
             }
         };
 
-        const cancelSlot = (index) => {
+        // 예약 취소
+        window.cancelSlot = (date, index) => {
+            const slots = reservations[date];
             const password = prompt('Enter your password to cancel the reservation:');
-            const slot = slots[index];
-
-            if (slot.password === password) {
-                slot.status = 'Available';
-                slot.user = null;
-                slot.password = null;
-                delete reservations[slot.time];
-                renderSlots();
+            if (slots[index].password === password) {
+                slots[index].status = 'Available';
+                slots[index].user = null;
+                slots[index].password = null;
                 saveToCSV();
+                renderSlots(date);
                 alert('Reservation cancelled.');
             } else {
                 alert('Incorrect password.');
             }
         };
 
-        const saveToCSV = () => {
-            let csvContent = 'Time,Apartment\n';
-            for (const time in reservations) {
-                csvContent += `${time},${reservations[time]}\n`;
-            }
-            uploadToGitHub(csvContent);
-        };
+        dateSelect.addEventListener('change', () => {
+            renderSlots(dateSelect.value);
+        });
 
-        // 초기 렌더링
-        renderSlots();
+        // 초기 표시
+        renderSlots(dateSelect.value);
     </script>
 </body>
 </html>
