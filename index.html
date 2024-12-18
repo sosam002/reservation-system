@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/> 
     <title>Reservation System</title>
     <style>
         body {
@@ -12,6 +12,7 @@
         h1, h2 {
             text-align: center;
         }
+
         .controls {
             display: flex;
             justify-content: center;
@@ -19,32 +20,53 @@
         }
         .controls label {
             margin-right: 10px;
+            font-weight: bold;
         }
         .controls select {
             font-size: 16px;
             padding: 5px;
         }
+
+        .slot-list {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
         .slot {
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin: 5px;
-            border-radius: 5px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
         }
         .slot.available {
-            background-color: #e0f7e9;
+            background-color: #d4edda;
         }
         .slot.occupied {
-            background-color: #fbe4e4;
+            background-color: #f8d7da;
         }
+
+        .slot-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slot-time-status {
+            font-weight: bold;
+        }
+
+        .slot-extra-info {
+            font-size: 0.9em;
+            color: #555;
+        }
+
         .btn {
             padding: 5px 10px;
             border: none;
-            border-radius: 5px;
+            border-radius: 3px;
             cursor: pointer;
-            margin-left: 5px;
+            margin-left: 10px;
         }
         .btn.reserve {
             background-color: #4CAF50;
@@ -53,10 +75,6 @@
         .btn.cancel {
             background-color: #f44336;
             color: white;
-        }
-        #slots {
-            max-width: 600px;
-            margin: 0 auto;
         }
     </style>
 </head>
@@ -67,183 +85,188 @@
         <label for="dateSelect">Date:</label>
         <select id="dateSelect"></select>
     </div>
-    <div id="slots"></div>
+    <div class="slot-list" id="slots"></div>
 
+    <!-- Supabase JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
     <script>
-        // ------------------------------------------
-        // 수정 필요 부분
-        // 본인 GitHub 계정명, Private Repo 이름, Token 설정
-        // ------------------------------------------
-        const REPO_OWNER = 'sosam002'; 
-        const REPO_NAME = 'reservation_info'; 
-        const BRANCH_NAME = 'main'; 
-        const ACCESS_TOKEN = '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'; 
-        
-        // 날짜 리스트: 원하는 날짜를 여기서 편집
-        const dates = [
-            '2024-12-20',
-            '2024-12-21',
-            '2024-12-22'
-        ];
+        // TODO: 실제 Supabase URL과 Anon Key로 교체하세요.
+        const SUPABASE_URL = "https://yabuloopzlrxjdhtilio.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhYnVsb29wemxyeGpkaHRpbGlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1MTM0NDAsImV4cCI6MjA1MDA4OTQ0MH0.NZtWhTe4j-ec-lmX2kfdXEe5tXv4izMT72kCpGU4hm0";
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const startHour = 8;
         const endHour = 20;
 
-        // GitHub API 기본 URL
-        const GITHUB_API_URL = 'https://api.github.com';
+        // 날짜 리스트 예시. 실제로는 원하는 날짜 배열 만들거나 동적으로 생성 가능
+        const dates = [
+            '2024-12-20',
+            '2024-12-21',
+            '2024-12-27'
+        ];
 
-        // 날짜별 슬롯 데이터 저장 구조: { 'YYYY-MM-DD': [ {time, status, user, password}, ... ], ... }
-        let reservations = {};
-
-        // 초기화: 각 날짜마다 슬롯 생성
-        dates.forEach(date => {
-            const daySlots = [];
-            for (let hour = startHour; hour < endHour; hour++) {
-                daySlots.push({
-                    time: `${hour}:00 - ${hour + 1}:00`,
-                    status: 'Available',
-                    user: null,
-                    password: null
-                });
-            }
-            reservations[date] = daySlots;
-        });
-
-        // 날짜 셀렉트 박스
         const dateSelect = document.getElementById('dateSelect');
-        dates.forEach(dateStr => {
-            const option = document.createElement('option');
-            option.value = dateStr;
-            option.textContent = dateStr;
-            dateSelect.appendChild(option);
-        });
-
         const slotsDiv = document.getElementById('slots');
 
-        const renderSlots = (date) => {
-            const slots = reservations[date];
-            slotsDiv.innerHTML = '';
-            slots.forEach((slot, index) => {
-                const slotDiv = document.createElement('div');
-                slotDiv.className = `slot ${slot.status.toLowerCase()}`;
-                let buttonsHTML = '';
-                if (slot.status === 'Available') {
-                    buttonsHTML = `<button class="btn reserve" onclick="reserveSlot('${date}', ${index})">Reserve</button>`;
-                } else {
-                    // Occupied 상태일 경우 예약한 동호수 표시
-                    buttonsHTML = `<span>${slot.user}</span><button class="btn cancel" onclick="cancelSlot('${date}', ${index})">Cancel</button>`;
-                }
+        // 날짜 옵션 채우기
+        dates.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d;
+            dateSelect.appendChild(opt);
+        });
 
-                slotDiv.innerHTML = `
-                    <span>${slot.time} - ${slot.status}</span>
-                    <div>${buttonsHTML}</div>
-                `;
-                slotsDiv.appendChild(slotDiv);
-            });
-        };
+        async function loadSlots(date) {
+            // public_reservations 뷰에서 해당 날짜 데이터 가져오기
+            const { data, error } = await supabaseClient
+                .from('public_reservations')
+                .select('*')
+                .eq('date', date);
 
-        // CSV 업로드 함수
-        const uploadToGitHub = async (content) => {
-            const filePath = 'reservations.csv';
-            const getFileUrl = `${GITHUB_API_URL}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`;
-            let sha = null;
-
-            try {
-                const getFileResponse = await fetch(getFileUrl, {
-                    headers: { Authorization: `token ${ACCESS_TOKEN}` },
-                });
-                if (getFileResponse.ok) {
-                    const fileData = await getFileResponse.json();
-                    sha = fileData.sha;
-                }
-            } catch (error) {
-                console.error('Error fetching file SHA:', error);
-            }
-
-            const uploadResponse = await fetch(getFileUrl, {
-                method: 'PUT',
-                headers: {
-                    Authorization: `token ${ACCESS_TOKEN}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message: 'Update reservations',
-                    content: btoa(content),
-                    branch: BRANCH_NAME,
-                    sha,
-                }),
-            });
-
-            if (uploadResponse.ok) {
-                console.log('CSV uploaded to GitHub successfully');
-            } else {
-                console.error('Error uploading CSV:', await uploadResponse.text());
-            }
-        };
-
-        // CSV 생성
-        const saveToCSV = () => {
-            // CSV: Date,Time,Apartment
-            let csvContent = 'Date,Time,Apartment\n';
-            for (const date in reservations) {
-                reservations[date].forEach(slot => {
-                    if (slot.status === 'Occupied') {
-                        csvContent += `${date},${slot.time},${slot.user}\n`;
-                    }
-                });
-            }
-            uploadToGitHub(csvContent);
-        };
-
-        // 예약 처리
-        window.reserveSlot = (date, index) => {
-            const slots = reservations[date];
-            const user = prompt('Enter your apartment number (동-호, e.g. 101-202):');
-            if (!/^\d{3}-\d{4}$/.test(user)) {
-                alert('Invalid apartment number format! Please use 000-0000 format.');
+            if (error) {
+                console.error(error);
                 return;
             }
 
+            // 전체 시간 슬롯 생성
+            const allSlots = [];
+            for (let hour = startHour; hour < endHour; hour++) {
+                const timeStr = `${hour}:00 - ${hour+1}:00`;
+                // 해당 timeStr에 매칭되는 예약 데이터 찾기
+                const slotData = data.find(item => item.time === timeStr);
+                const occupied = slotData ? slotData.occupied : false;
+                const apartment = (occupied && slotData.apartment) ? slotData.apartment : null;
+
+                allSlots.push({
+                    time: timeStr,
+                    occupied,
+                    apartment
+                });
+            }
+
+            renderSlots(allSlots);
+        }
+
+        function renderSlots(allSlots) {
+            slotsDiv.innerHTML = '';
+            allSlots.forEach(slot => {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = `slot ${slot.occupied ? 'occupied' : 'available'}`;
+                
+                const slotInfoDiv = document.createElement('div');
+                slotInfoDiv.className = 'slot-info';
+
+                const timeStatus = document.createElement('div');
+                timeStatus.className = 'slot-time-status';
+                timeStatus.textContent = `${slot.time} - ${slot.occupied ? 'Occupied' : 'Available'}`;
+
+                slotInfoDiv.appendChild(timeStatus);
+
+                if (slot.occupied && slot.apartment) {
+                    const extraInfo = document.createElement('div');
+                    extraInfo.className = 'slot-extra-info';
+                    extraInfo.textContent = `Reserved by ${slot.apartment}`;
+                    slotInfoDiv.appendChild(extraInfo);
+                }
+
+                slotDiv.appendChild(slotInfoDiv);
+
+                const actionDiv = document.createElement('div');
+
+                if (slot.occupied) {
+                    // 취소 버튼
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.className = 'btn cancel';
+                    cancelBtn.textContent = 'Cancel';
+                    cancelBtn.onclick = () => cancelReservation(dateSelect.value, slot.time);
+                    actionDiv.appendChild(cancelBtn);
+                } else {
+                    // 예약 버튼
+                    const reserveBtn = document.createElement('button');
+                    reserveBtn.className = 'btn reserve';
+                    reserveBtn.textContent = 'Reserve';
+                    reserveBtn.onclick = () => reserveSlot(dateSelect.value, slot.time);
+                    actionDiv.appendChild(reserveBtn);
+                }
+
+                slotDiv.appendChild(actionDiv);
+                slotsDiv.appendChild(slotDiv);
+            });
+        }
+
+        async function reserveSlot(date, time) {
+            const apartment = prompt('Enter your apartment number (e.g. 108-0501):');
+            if (!/^\d{3}-\d{4}$/.test(apartment)) {
+                alert('Invalid apartment number format.');
+                return;
+            }
             const password = prompt('Enter your password:');
             if (!password) {
                 alert('Password is required.');
                 return;
             }
 
-            if (slots[index].status === 'Available') {
-                slots[index].status = 'Occupied';
-                slots[index].user = user;
-                slots[index].password = password;
-                saveToCSV();
-                renderSlots(date);
-                alert('Reservation successful!');
-            } else {
-                alert('This slot is already occupied.');
-            }
-        };
+            // reservations 테이블에 insert
+            const { error } = await supabaseClient
+                .from('reservations')
+                .insert([{ date, time, apartment, password }]);
 
-        // 예약 취소
-        window.cancelSlot = (date, index) => {
-            const slots = reservations[date];
-            const password = prompt('Enter your password to cancel the reservation:');
-            if (slots[index].password === password) {
-                slots[index].status = 'Available';
-                slots[index].user = null;
-                slots[index].password = null;
-                saveToCSV();
-                renderSlots(date);
-                alert('Reservation cancelled.');
+            if (error) {
+                console.error('Reservation error:', error);
+                alert('Failed to reserve.');
             } else {
-                alert('Incorrect password.');
+                alert('Reservation successful!');
+                loadSlots(dateSelect.value);
             }
-        };
+        }
+
+        async function cancelReservation(date, time) {
+            const password = prompt('Enter your password to cancel:');
+            if (!password) {
+                alert('Password required.');
+                return;
+            }
+
+            // 해당 예약 가져오기
+            const { data, error } = await supabaseClient
+                .from('reservations')
+                .select('*')
+                .eq('date', date)
+                .eq('time', time)
+                .single();
+
+            if (error || !data) {
+                alert('No reservation found.');
+                return;
+            }
+
+            if (data.password !== password) {
+                alert('Incorrect password.');
+                return;
+            }
+
+            // 예약 삭제
+            const { error: delError } = await supabaseClient
+                .from('reservations')
+                .delete()
+                .eq('id', data.id);
+
+            if (delError) {
+                console.error('Cancel error:', delError);
+                alert('Failed to cancel.');
+            } else {
+                alert('Reservation cancelled.');
+                loadSlots(dateSelect.value);
+            }
+        }
 
         dateSelect.addEventListener('change', () => {
-            renderSlots(dateSelect.value);
+            loadSlots(dateSelect.value);
         });
 
-        // 초기 표시
-        renderSlots(dateSelect.value);
+        // 초기 로드
+        loadSlots(dateSelect.value);
     </script>
 </body>
 </html>
