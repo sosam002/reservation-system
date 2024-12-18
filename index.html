@@ -87,19 +87,20 @@
     </div>
     <div class="slot-list" id="slots"></div>
 
-    <!-- Supabase JS -->
+    <!-- Supabase JS 라이브러리 로드 -->
     <script src="https://unpkg.com/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
     <script>
-        // TODO: 실제 Supabase URL과 Anon Key로 교체하세요.
+        // 여기 두 상수를 본인 프로젝트에 맞게 수정하세요.
         const SUPABASE_URL = "https://yabuloopzlrxjdhtilio.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhYnVsb29wemxyeGpkaHRpbGlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1MTM0NDAsImV4cCI6MjA1MDA4OTQ0MH0.NZtWhTe4j-ec-lmX2kfdXEe5tXv4izMT72kCpGU4hm0";
+
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const startHour = 8;
         const endHour = 20;
 
-        // 날짜 리스트 예시. 실제로는 원하는 날짜 배열 만들거나 동적으로 생성 가능
+        // 표시할 날짜 리스트
         const dates = [
             '2024-12-20',
             '2024-12-21',
@@ -109,7 +110,7 @@
         const dateSelect = document.getElementById('dateSelect');
         const slotsDiv = document.getElementById('slots');
 
-        // 날짜 옵션 채우기
+        // 날짜 옵션 추가
         dates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d;
@@ -118,7 +119,7 @@
         });
 
         async function loadSlots(date) {
-            // public_reservations 뷰에서 해당 날짜 데이터 가져오기
+            // public_reservations 뷰에서 해당 날짜 데이터 조회
             const { data, error } = await supabaseClient
                 .from('public_reservations')
                 .select('*')
@@ -133,10 +134,10 @@
             const allSlots = [];
             for (let hour = startHour; hour < endHour; hour++) {
                 const timeStr = `${hour}:00 - ${hour+1}:00`;
-                // 해당 timeStr에 매칭되는 예약 데이터 찾기
                 const slotData = data.find(item => item.time === timeStr);
                 const occupied = slotData ? slotData.occupied : false;
-                const apartment = (occupied && slotData.apartment) ? slotData.apartment : null;
+                // slotData에 apartment가 없을 수 있으므로 null 체크
+                const apartment = (slotData && slotData.apartment) ? slotData.apartment : null;
 
                 allSlots.push({
                     time: timeStr,
@@ -207,7 +208,7 @@
                 return;
             }
 
-            // reservations 테이블에 insert
+            // reservations 테이블에 예약 정보 삽입
             const { error } = await supabaseClient
                 .from('reservations')
                 .insert([{ date, time, apartment, password }]);
@@ -228,7 +229,7 @@
                 return;
             }
 
-            // 해당 예약 가져오기
+            // 해당 시간대 예약 정보 가져오기
             const { data, error } = await supabaseClient
                 .from('reservations')
                 .select('*')
