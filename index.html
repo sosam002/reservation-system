@@ -12,6 +12,7 @@
         h1, h2 {
             text-align: center;
         }
+
         .controls {
             display: flex;
             justify-content: center;
@@ -25,10 +26,12 @@
             font-size: 16px;
             padding: 5px;
         }
+
         .slot-list {
             max-width: 400px;
             margin: 0 auto;
         }
+
         .slot {
             display: flex;
             align-items: center;
@@ -38,22 +41,26 @@
             margin: 5px 0;
         }
         .slot.available {
-            background-color: #d4edda;
+            background-color: #d4edda; /* 녹색 */
         }
         .slot.occupied {
-            background-color: #f8d7da;
+            background-color: #f8d7da; /* 붉은색 */
         }
+
         .slot-info {
             display: flex;
             flex-direction: column;
         }
+
         .slot-time-status {
             font-weight: bold;
         }
+
         .slot-extra-info {
             font-size: 0.9em;
             color: #555;
         }
+
         .btn {
             padding: 5px 10px;
             border: none;
@@ -80,12 +87,12 @@
     </div>
     <div class="slot-list" id="slots"></div>
 
-    <!-- Supabase JS 라이브러리를 먼저 로드 -->
+    <!-- Supabase JS 로드 -->
     <script src="https://unpkg.com/@supabase/supabase-js"></script>
     <script>
-        // 실제 프로젝트 URL과 키로 변경하세요.
-        const SUPABASE_URL = "https://yabuloopzlrxjdhtilio.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhYnVsb29wemxyeGpkaHRpbGlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1MTM0NDAsImV4cCI6MjA1MDA4OTQ0MH0.NZtWhTe4j-ec-lmX2kfdXEe5tXv4izMT72kCpGU4hm0";
+        // TODO: 본인의 Supabase URL과 Anon Key로 바꾸세요.
+        const SUPABASE_URL = "https://YOUR_PROJECT_URL.supabase.co";
+        const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
 
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -93,6 +100,7 @@
         const startHour = 8;
         const endHour = 20;
 
+        // 날짜 리스트 (원하는 날짜를 배열에 추가)
         const dates = [
             '2024-12-20',
             '2024-12-21',
@@ -102,6 +110,7 @@
         const dateSelect = document.getElementById('dateSelect');
         const slotsDiv = document.getElementById('slots');
 
+        // 날짜 옵션 추가
         dates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d;
@@ -110,6 +119,7 @@
         });
 
         async function loadSlots(date) {
+            // public_reservations 뷰에서 해당 날짜 데이터 조회
             const { data, error } = await supabaseClient
                 .from('public_reservations')
                 .select('*')
@@ -120,6 +130,7 @@
                 return;
             }
 
+            // 전체 시간 슬롯 생성 및 뷰 데이터 매칭
             const allSlots = [];
             for (let hour = startHour; hour < endHour; hour++) {
                 const timeStr = `${hour}:00 - ${hour+1}:00`;
@@ -164,12 +175,14 @@
                 const actionDiv = document.createElement('div');
 
                 if (slot.occupied) {
+                    // 취소 버튼
                     const cancelBtn = document.createElement('button');
                     cancelBtn.className = 'btn cancel';
                     cancelBtn.textContent = 'Cancel';
                     cancelBtn.onclick = () => cancelReservation(dateSelect.value, slot.time);
                     actionDiv.appendChild(cancelBtn);
                 } else {
+                    // 예약 버튼
                     const reserveBtn = document.createElement('button');
                     reserveBtn.className = 'btn reserve';
                     reserveBtn.textContent = 'Reserve';
@@ -185,18 +198,25 @@
         async function reserveSlot(date, time) {
             const apartment = prompt('Enter your apartment number (e.g. 108-0501):');
             if (!/^\d{3}-\d{4}$/.test(apartment)) {
-                alert('Invalid apartment number format.');
+                alert('Invalid apartment number format (000-0000) required.');
                 return;
             }
+
             const password = prompt('Enter your password:');
             if (!password) {
                 alert('Password is required.');
                 return;
             }
 
+            const phone = prompt('Enter your phone number (010-XXXXXXXXX):');
+            if (!/^010\d{8}$/.test(phone)) {
+                alert('Invalid phone number. Please enter 11 digits starting with 010.');
+                return;
+            }
+
             const { error } = await supabaseClient
                 .from('reservations')
-                .insert([{ date, time, apartment, password }]);
+                .insert([{ date, time, apartment, password, phone }]);
 
             if (error) {
                 console.error('Reservation error:', error);
@@ -249,6 +269,7 @@
             loadSlots(dateSelect.value);
         });
 
+        // 초기 로딩
         loadSlots(dateSelect.value);
     </script>
 </body>
