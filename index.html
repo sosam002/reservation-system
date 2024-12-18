@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservation System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        .slot {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .slot.available {
+            background-color: #e0f7e9;
+        }
+        .slot.occupied {
+            background-color: #fbe4e4;
+        }
+        .btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn.reserve {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn.cancel {
+            background-color: #f44336;
+            color: white;
+        }
+        form {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        form input, form button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reservation System</h1>
+    <h2>Choose a time slot</h2>
+    <div id="slots"></div>
+
+    <script>
+        // Initialize time slots
+        const startHour = 9;
+        const endHour = 22;
+        const slots = [];
+
+        for (let hour = startHour; hour < endHour; hour++) {
+            slots.push({
+                time: `${hour}:00 - ${hour + 1}:00`,
+                status: 'Available',
+                user: null,
+                password: null
+            });
+        }
+
+        // Load saved data from localStorage
+        const savedSlots = JSON.parse(localStorage.getItem('reservations'));
+        if (savedSlots) {
+            slots.forEach((slot, index) => {
+                slots[index] = savedSlots[index];
+            });
+        }
+
+        // Render slots
+        const slotsDiv = document.getElementById('slots');
+        const renderSlots = () => {
+            slotsDiv.innerHTML = '';
+            slots.forEach((slot, index) => {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = `slot ${slot.status.toLowerCase()}`;
+                slotDiv.innerHTML = `
+                    <span>${slot.time} - ${slot.status}</span>
+                    <button class="btn reserve" onclick="reserveSlot(${index})">Reserve</button>
+                    ${
+                        slot.status === 'Occupied'
+                            ? `<button class="btn cancel" onclick="cancelSlot(${index})">Cancel</button>`
+                            : ''
+                    }
+                `;
+                slotsDiv.appendChild(slotDiv);
+            });
+        };
+
+        // Reserve a slot
+        const reserveSlot = (index) => {
+            const user = prompt('Enter your apartment number (동호수):');
+            const password = prompt('Enter a temporary password:');
+            if (user && password) {
+                if (slots[index].status === 'Available') {
+                    slots[index].status = 'Occupied';
+                    slots[index].user = user;
+                    slots[index].password = password;
+                    saveSlots();
+                    renderSlots();
+                    alert('Reservation successful!');
+                } else {
+                    alert('This slot is already occupied.');
+                }
+            } else {
+                alert('Both apartment number and password are required.');
+            }
+        };
+
+        // Cancel a reservation
+        const cancelSlot = (index) => {
+            const user = prompt('Enter your apartment number (동호수):');
+            const password = prompt('Enter your password:');
+            if (user && password) {
+                if (slots[index].user === user && slots[index].password === password) {
+                    slots[index].status = 'Available';
+                    slots[index].user = null;
+                    slots[index].password = null;
+                    saveSlots();
+                    renderSlots();
+                    alert('Reservation cancelled.');
+                } else {
+                    alert('Invalid credentials.');
+                }
+            } else {
+                alert('Both apartment number and password are required.');
+            }
+        };
+
+        // Save slots to localStorage
+        const saveSlots = () => {
+            localStorage.setItem('reservations', JSON.stringify(slots));
+        };
+
+        renderSlots();
+    </script>
+</body>
+</html>
