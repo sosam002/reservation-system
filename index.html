@@ -12,7 +12,6 @@
         h1, h2 {
             text-align: center;
         }
-
         .controls {
             display: flex;
             justify-content: center;
@@ -26,12 +25,10 @@
             font-size: 16px;
             padding: 5px;
         }
-
         .slot-list {
             max-width: 400px;
             margin: 0 auto;
         }
-
         .slot {
             display: flex;
             align-items: center;
@@ -46,21 +43,17 @@
         .slot.occupied {
             background-color: #f8d7da;
         }
-
         .slot-info {
             display: flex;
             flex-direction: column;
         }
-
         .slot-time-status {
             font-weight: bold;
         }
-
         .slot-extra-info {
             font-size: 0.9em;
             color: #555;
         }
-
         .btn {
             padding: 5px 10px;
             border: none;
@@ -87,10 +80,10 @@
     </div>
     <div class="slot-list" id="slots"></div>
 
-    <!-- Supabase JS 라이브러리 로드 -->
-    <script src="https://unpkg.com/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+    <!-- Supabase JS 라이브러리를 먼저 로드 -->
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
     <script>
-        // 여기 두 상수를 본인 프로젝트에 맞게 수정하세요.
+        // 실제 프로젝트 URL과 키로 변경하세요.
         const SUPABASE_URL = "https://yabuloopzlrxjdhtilio.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhYnVsb29wemxyeGpkaHRpbGlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1MTM0NDAsImV4cCI6MjA1MDA4OTQ0MH0.NZtWhTe4j-ec-lmX2kfdXEe5tXv4izMT72kCpGU4hm0";
 
@@ -100,7 +93,6 @@
         const startHour = 8;
         const endHour = 20;
 
-        // 표시할 날짜 리스트
         const dates = [
             '2024-12-20',
             '2024-12-21',
@@ -110,7 +102,6 @@
         const dateSelect = document.getElementById('dateSelect');
         const slotsDiv = document.getElementById('slots');
 
-        // 날짜 옵션 추가
         dates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d;
@@ -119,7 +110,6 @@
         });
 
         async function loadSlots(date) {
-            // public_reservations 뷰에서 해당 날짜 데이터 조회
             const { data, error } = await supabaseClient
                 .from('public_reservations')
                 .select('*')
@@ -130,13 +120,11 @@
                 return;
             }
 
-            // 전체 시간 슬롯 생성
             const allSlots = [];
             for (let hour = startHour; hour < endHour; hour++) {
                 const timeStr = `${hour}:00 - ${hour+1}:00`;
                 const slotData = data.find(item => item.time === timeStr);
                 const occupied = slotData ? slotData.occupied : false;
-                // slotData에 apartment가 없을 수 있으므로 null 체크
                 const apartment = (slotData && slotData.apartment) ? slotData.apartment : null;
 
                 allSlots.push({
@@ -176,14 +164,12 @@
                 const actionDiv = document.createElement('div');
 
                 if (slot.occupied) {
-                    // 취소 버튼
                     const cancelBtn = document.createElement('button');
                     cancelBtn.className = 'btn cancel';
                     cancelBtn.textContent = 'Cancel';
                     cancelBtn.onclick = () => cancelReservation(dateSelect.value, slot.time);
                     actionDiv.appendChild(cancelBtn);
                 } else {
-                    // 예약 버튼
                     const reserveBtn = document.createElement('button');
                     reserveBtn.className = 'btn reserve';
                     reserveBtn.textContent = 'Reserve';
@@ -208,7 +194,6 @@
                 return;
             }
 
-            // reservations 테이블에 예약 정보 삽입
             const { error } = await supabaseClient
                 .from('reservations')
                 .insert([{ date, time, apartment, password }]);
@@ -229,7 +214,6 @@
                 return;
             }
 
-            // 해당 시간대 예약 정보 가져오기
             const { data, error } = await supabaseClient
                 .from('reservations')
                 .select('*')
@@ -247,7 +231,6 @@
                 return;
             }
 
-            // 예약 삭제
             const { error: delError } = await supabaseClient
                 .from('reservations')
                 .delete()
@@ -266,7 +249,6 @@
             loadSlots(dateSelect.value);
         });
 
-        // 초기 로드
         loadSlots(dateSelect.value);
     </script>
 </body>
