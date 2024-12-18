@@ -12,6 +12,15 @@
         h1, h2 {
             text-align: center;
         }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .controls select {
+            font-size: 16px;
+            padding: 5px;
+        }
         .slot {
             border: 1px solid #ddd;
             padding: 10px;
@@ -32,6 +41,7 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin-left: 5px;
         }
         .btn.reserve {
             background-color: #4CAF50;
@@ -50,78 +60,133 @@
         form input, form button {
             margin: 5px;
         }
+        #slots {
+            max-width: 600px;
+            margin: 0 auto;
+        }
     </style>
 </head>
 <body>
     <h1>Reservation System</h1>
-    <h2>Choose a time slot</h2>
+    <h2>Select a Date and Time Slot</h2>
+    <div class="controls">
+        <label for="dateSelect" style="margin-right:10px;">Date:</label>
+        <select id="dateSelect"></select>
+    </div>
     <div id="slots"></div>
 
     <script>
-        // Initialize time slots
+        // ***************************************
+        // 날짜 개수를 조정하는 변수 (6~10일 등 원하는 값으로 변경 가능)
+        const dateCount = 7; 
+        // 여기서 dateCount 값을 변경하면 날짜 선택 범위가 변경됩니다.
+        // ***************************************
+
         const startHour = 9;
         const endHour = 22;
-        const slots = [];
 
-        for (let hour = startHour; hour < endHour; hour++) {
-            slots.push({
-                time: `${hour}:00 - ${hour + 1}:00`,
-                status: 'Available',
-                user: null,
-                password: null
-            });
+        // 날짜 목록 생성
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const dates = [];
+        for (let i = 0; i < dateCount; i++) {
+            const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+            // YYYY-MM-DD 형식 문자열
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+            dates.push(dateStr);
         }
 
-        // Load saved data from localStorage
-        const savedSlots = JSON.parse(localStorage.getItem('reservations'));
-        if (savedSlots) {
-            slots.forEach((slot, index) => {
-                slots[index] = savedSlots[index];
-            });
+        // 시간 슬롯 템플릿 생성 함수
+        const createSlotsForDay = () => {
+            const slots = [];
+            for (let hour = startHour; hour < endHour; hour++) {
+                slots.push({
+                    time: `${hour}:00 - ${hour + 1}:00`,
+                    status: 'Available',
+                    user: null,
+                    password: null
+                });
+            }
+            return slots;
+        };
+
+        // 전체 데이터 구조: { 'YYYY-MM-DD': [slotObjects], ... }
+        let reservations = {};
+
+        // 로컬 스토리지에서 데이터 불러오기
+        const savedData = JSON.parse(localStorage.getItem('reservationsWithDates'));
+        if (savedData) {
+            reservations = savedData;
         }
 
-        // Render slots
+        // 날짜 셀렉트 박스에 옵션 추가
+        const dateSelect = document.getElementById('dateSelect');
+        dates.forEach(dateStr => {
+            const option = document.createElement('option');
+            option.value = dateStr;
+            option.textContent = dateStr;
+            dateSelect.appendChild(option);
+        });
+
+        // 현재 선택된 날짜에 대한 슬롯 표시
         const slotsDiv = document.getElementById('slots');
-        const renderSlots = () => {
+
+        const renderSlots = (date) => {
+            // 해당 날짜의 슬롯이 없으면 초기화
+            if (!reservations[date]) {
+                reservations[date] = createSlotsForDay();
+            }
+
+            const slots = reservations[date];
             slotsDiv.innerHTML = '';
             slots.forEach((slot, index) => {
                 const slotDiv = document.createElement('div');
                 slotDiv.className = `slot ${slot.status.toLowerCase()}`;
+
+                let buttonsHTML = '';
+                // Occupied 상태일 경우 예약 버튼 없이 Cancel 버튼만
+                if (slot.status === 'Available') {
+                    buttonsHTML = `<button class="btn reserve" onclick="reserveSlot('${date}', ${index})">Reserve</button>`;
+                }
+                if (slot.status === 'Occupied') {
+                    buttonsHTML += `<button class="btn cancel" onclick="cancelSlot('${date}', ${index})">Cancel</button>`;
+                }
+
                 slotDiv.innerHTML = `
                     <span>${slot.time} - ${slot.status}</span>
-                    <button class="btn reserve" onclick="reserveSlot(${index})">Reserve</button>
-                    ${
-                        slot.status === 'Occupied'
-                            ? `<button class="btn cancel" onclick="cancelSlot(${index})">Cancel</button>`
-                            : ''
-                    }
+                    <div>${buttonsHTML}</div>
                 `;
                 slotsDiv.appendChild(slotDiv);
             });
         };
 
-        // Reserve a slot
-        const reserveSlot = (index) => {
-            const user = prompt('Enter your apartment number (동호수):');
-            const password = prompt('Enter a temporary password:');
-            if (user && password) {
-                if (slots[index].status === 'Available') {
+        // 예약 기능
+        window.reserveSlot = (date, index) => {
+            const slots = reservations[date];
+            if (slots[index].status === 'Available') {
+                const user = prompt('Enter your apartment number (동호수):');
+                const password = prompt('Enter a temporary password:');
+                if (user && password) {
                     slots[index].status = 'Occupied';
                     slots[index].user = user;
                     slots[index].password = password;
-                    saveSlots();
-                    renderSlots();
+                    saveData();
+                    renderSlots(date);
                     alert('Reservation successful!');
                 } else {
-                    alert('This slot is already occupied.');
+                    alert('Both apartment number and password are required.');
                 }
             } else {
-                alert('Both apartment number and password are required.');
+                alert('This slot is already occupied.');
             }
         };
 
-        // Cancel a reservation
-        const cancelSlot = (index) => {
+        // 예약 취소 기능
+        window.cancelSlot = (date, index) => {
+            const slots = reservations[date];
             const user = prompt('Enter your apartment number (동호수):');
             const password = prompt('Enter your password:');
             if (user && password) {
@@ -129,8 +194,8 @@
                     slots[index].status = 'Available';
                     slots[index].user = null;
                     slots[index].password = null;
-                    saveSlots();
-                    renderSlots();
+                    saveData();
+                    renderSlots(date);
                     alert('Reservation cancelled.');
                 } else {
                     alert('Invalid credentials.');
@@ -140,12 +205,19 @@
             }
         };
 
-        // Save slots to localStorage
-        const saveSlots = () => {
-            localStorage.setItem('reservations', JSON.stringify(slots));
+        // 데이터 저장
+        const saveData = () => {
+            localStorage.setItem('reservationsWithDates', JSON.stringify(reservations));
         };
 
-        renderSlots();
+        // 날짜 변경 시 슬롯 다시 렌더링
+        dateSelect.addEventListener('change', () => {
+            const selectedDate = dateSelect.value;
+            renderSlots(selectedDate);
+        });
+
+        // 초기 로드 시 현재 선택된 날짜의 슬롯 표시
+        renderSlots(dateSelect.value);
     </script>
 </body>
 </html>
