@@ -51,15 +51,6 @@
             background-color: #f44336;
             color: white;
         }
-        form {
-            margin-top: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        form input, form button {
-            margin: 5px;
-        }
         #slots {
             max-width: 600px;
             margin: 0 auto;
@@ -77,27 +68,12 @@
 
     <script>
         // ***************************************
-        // 날짜 개수를 조정하는 변수 (6~10일 등 원하는 값으로 변경 가능)
-        const dateCount = 7; 
-        // 여기서 dateCount 값을 변경하면 날짜 선택 범위가 변경됩니다.
+        // 원하는 날짜 리스트를 여기서 직접 입력
+        const dates = ['2024-12-23', '2024-12-25', '2024-12-27', '2024-12-30'];
         // ***************************************
 
-        const startHour = 9;
-        const endHour = 22;
-
-        // 날짜 목록 생성
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const dates = [];
-        for (let i = 0; i < dateCount; i++) {
-            const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
-            // YYYY-MM-DD 형식 문자열
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`;
-            dates.push(dateStr);
-        }
+        const startHour = 8;
+        const endHour = 20;
 
         // 시간 슬롯 템플릿 생성 함수
         const createSlotsForDay = () => {
@@ -107,7 +83,7 @@
                     time: `${hour}:00 - ${hour + 1}:00`,
                     status: 'Available',
                     user: null,
-                    password: null
+                    phone: null
                 });
             }
             return slots;
@@ -147,12 +123,13 @@
                 slotDiv.className = `slot ${slot.status.toLowerCase()}`;
 
                 let buttonsHTML = '';
-                // Occupied 상태일 경우 예약 버튼 없이 Cancel 버튼만
+                // Occupied 상태일 경우 예약 정보 표시
                 if (slot.status === 'Available') {
                     buttonsHTML = `<button class="btn reserve" onclick="reserveSlot('${date}', ${index})">Reserve</button>`;
                 }
                 if (slot.status === 'Occupied') {
-                    buttonsHTML += `<button class="btn cancel" onclick="cancelSlot('${date}', ${index})">Cancel</button>`;
+                    buttonsHTML = `<span>Reserved by ${slot.user}</span>
+                                   <button class="btn cancel" onclick="cancelSlot('${date}', ${index})">Cancel</button>`;
                 }
 
                 slotDiv.innerHTML = `
@@ -167,18 +144,25 @@
         window.reserveSlot = (date, index) => {
             const slots = reservations[date];
             if (slots[index].status === 'Available') {
-                const user = prompt('Enter your apartment number (동호수):');
-                const password = prompt('Enter a temporary password:');
-                if (user && password) {
-                    slots[index].status = 'Occupied';
-                    slots[index].user = user;
-                    slots[index].password = password;
-                    saveData();
-                    renderSlots(date);
-                    alert('Reservation successful!');
-                } else {
-                    alert('Both apartment number and password are required.');
+                const user = prompt('Enter your apartment number (동-호):');
+                if (!/^\d{3}-\d{4}$/.test(user)) {
+                    alert('Invalid format. Please enter in 000-0000 format.');
+                    return;
                 }
+
+                const phone = prompt('Enter your phone number (010-XXXXXXXXX):');
+                if (!/^010\d{8}$/.test(phone)) {
+                    alert('Invalid phone number. Please enter an 11-digit number starting with 010.');
+                    return;
+                }
+
+                slots[index].status = 'Occupied';
+                slots[index].user = user;
+                slots[index].phone = phone;
+                saveData();
+                exportToCSV();
+                renderSlots(date);
+                alert('Reservation successful!');
             } else {
                 alert('This slot is already occupied.');
             }
@@ -187,27 +171,46 @@
         // 예약 취소 기능
         window.cancelSlot = (date, index) => {
             const slots = reservations[date];
-            const user = prompt('Enter your apartment number (동호수):');
-            const password = prompt('Enter your password:');
-            if (user && password) {
-                if (slots[index].user === user && slots[index].password === password) {
+            const user = prompt('Enter your apartment number (동-호):');
+            const phone = prompt('Enter your phone number (010-XXXXXXXXX):');
+            if (user && phone) {
+                if (slots[index].user === user && slots[index].phone === phone) {
                     slots[index].status = 'Available';
                     slots[index].user = null;
-                    slots[index].password = null;
+                    slots[index].phone = null;
                     saveData();
+                    exportToCSV();
                     renderSlots(date);
                     alert('Reservation cancelled.');
                 } else {
                     alert('Invalid credentials.');
                 }
             } else {
-                alert('Both apartment number and password are required.');
+                alert('Both apartment number and phone number are required.');
             }
         };
 
         // 데이터 저장
         const saveData = () => {
             localStorage.setItem('reservationsWithDates', JSON.stringify(reservations));
+        };
+
+        // CSV 저장
+        const exportToCSV = () => {
+            let csvContent = 'Date,Time,Apartment,Phone\n';
+            for (const date in reservations) {
+                reservations[date].forEach(slot => {
+                    if (slot.status === 'Occupied') {
+                        csvContent += `${date},${slot.time},${slot.user},${slot.phone}\n`;
+                    }
+                });
+            }
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'reservations.csv';
+            link.click();
         };
 
         // 날짜 변경 시 슬롯 다시 렌더링
